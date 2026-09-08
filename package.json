@@ -1,0 +1,41 @@
+{
+  "name": "corporate-screen",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "dev": "concurrently -n CLIENT,SERVER -c blue,green \"npm run dev:client\" \"npm run dev:server\"",
+    "build:client": "npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "build": "npm run build:client && npm run build:server",
+    "lint": "npm run lint --workspace=client",
+    "test": "npm run test --workspace=server",
+    "test:cloudflare": "node --import tsx --test worker/test/*.test.ts",
+    "check": "npm run lint && npm run test && npm run test:cloudflare && npm run build",
+    "audit:prod": "npm audit --omit=dev",
+    "audit:repo": "node scripts/audit-repository.mjs",
+    "dev:cloudflare": "npm run build:client && wrangler dev",
+    "deploy:cloudflare": "npm run build:client && wrangler deploy",
+    "types:cloudflare": "wrangler types worker/src/worker-configuration.d.ts",
+    "check:cloudflare": "tsc -p worker/tsconfig.json && wrangler deploy --dry-run --outdir .codex-run/worker-build",
+    "seed:cloudflare": "node worker/scripts/create-seed.mjs",
+    "start": "npm run start --workspace=server",
+    "backup": "node server/scripts/backup.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260831.1",
+    "concurrently": "^8.2.2",
+    "wrangler": "^4.127.1"
+  },
+  "dependencies": {
+    "react-router-dom": "7.18.2"
+  },
+  "overrides": {
+    "qs": "6.16.0"
+  }
+}

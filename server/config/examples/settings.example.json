@@ -1,0 +1,10 @@
+{
+  "tema": "dark",
+  "empresa": "Nome da Empresa",
+  "logoPadrao": "/uploads/logos/logo.png",
+  "modoOperacao": "normal",
+  "limiteCadastroAtivo": true,
+  "atualizacaoPlayersEm": "",
+  "sincronizacaoImagensAtiva": false,
+  "cicloSincronizadoEm": ""
+}

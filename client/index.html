@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Corporate Screen</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Mostrado somente quando o navegador não consegue carregar o JavaScript moderno. -->
+    <section id="legacy-browser-warning" style="box-sizing:border-box;min-height:100vh;padding:32px;background:#020617;color:#e2e8f0;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center">
+      <div style="max-width:620px;border:1px solid #334155;border-radius:12px;padding:28px;background:#0f172a">
+        <p style="margin:0;color:#67e8f9;font-size:14px;letter-spacing:2px">CORPORATE SCREEN</p>
+        <h1 style="margin:18px 0 12px;font-size:26px">Navegador não compatível</h1>
+        <p style="margin:0;line-height:1.55;color:#cbd5e1">O painel administrativo exige um navegador moderno. Para reprodução em uma TV antiga, abra a raiz do domínio; o player compatível será selecionado automaticamente.</p>
+        <p style="margin:18px 0 0;font-size:14px;color:#94a3b8">O aparelho ainda precisa suportar HTTPS/TLS e, para vídeos, reprodução HTML5 do formato utilizado.</p>
+      </div>
+    </section>
+    <script>
+      // TVs antigas não entendem módulos ES, usados pelo player moderno. Ao
+      // abrir a raiz do domínio, elas seguem automaticamente para o player compatível.
+      // Para usuários e TVs atuais, o endereço oficial é a raiz: /.
+      (function () {
+        var moduleSupported = 'noModule' in document.createElement('script')
+        var storageSupported = false
+        try { storageSupported = Boolean(window.localStorage) } catch (error) { storageSupported = false }
+        var modernFeatures = moduleSupported && window.Promise && window.fetch && window.Symbol && window.Map && window.Set && Object.assign && storageSupported
+        if (!modernFeatures && /^\/(player\/?)?$/.test(window.location.pathname)) {
+          window.location.replace('/player-legacy')
+        }
+        if (/^\/(player\/?)?$/.test(window.location.pathname)) {
+          window.setTimeout(function () {
+            if (!document.getElementById('root').firstChild) window.location.replace('/player-legacy')
+          }, 12000)
+        }
+      }())
+    </script>
+    <script src="/player-diagnostics.js?v=2026-09-04.3"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

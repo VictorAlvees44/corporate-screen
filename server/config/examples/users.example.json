@@ -1,0 +1,10 @@
+[
+  {
+    "email": "admin@empresa.com",
+    "role": "admin"
+  },
+  {
+    "email": "editor@empresa.com",
+    "role": "editor"
+  }
+]

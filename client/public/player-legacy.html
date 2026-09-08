@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corporate Screen - Player para TVs</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body, #screen { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; color: #fff; font-family: Arial, sans-serif; }
+    #screen { position: relative; }
+    #screen > img, #screen > video, #screen > iframe, .layout-item img, .layout-item video, .layout-item iframe { width: 100%; height: 100%; border: 0; object-fit: contain; }
+    .layout-item { position: absolute; overflow: hidden; pointer-events: none; }
+    .layout-text, .layout-widget { width: 100%; height: 100%; display: table; background: rgba(0,0,0,.58); color: #fff; }
+    .layout-text > div, .layout-widget > div { display: table-cell; vertical-align: middle; padding: 12px; text-align: center; }
+    .layout-clock { font-size: 42px; font-weight: bold; font-family: monospace; }
+    .layout-news { font-size: 18px; text-align: left !important; opacity: 1; transition: opacity .4s ease; }
+    .standard-footer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; height: 13%; display: table; table-layout: fixed; width: 100%; overflow: hidden; background: rgba(6,11,16,.97); border-top: 1px solid rgba(255,255,255,.12); }
+    .standard-footer-cell { display: table-cell; height: 100%; vertical-align: top; overflow: hidden; border-left: 1px solid rgba(255,255,255,.12); }
+    .standard-footer-cell:first-child { border-left: 0; }
+    .footer-widget { width: 100%; height: 100%; overflow: hidden; background: rgba(6,11,16,.95); color: #fff; padding: 9px 12px; }
+    .footer-clock { display: table; padding: 0 4px; text-align: center; }
+    .footer-clock-content { display: table-cell; vertical-align: middle; }
+    .footer-clock-time { display: block; font: bold 32px monospace; line-height: 1; white-space: nowrap; }
+    .footer-clock-date { display: block; color: #cbd5e1; font-size: 11px; margin-top: 7px; white-space: nowrap; }
+    .footer-weather-current { display: inline-block; vertical-align: middle; white-space: nowrap; }
+    .footer-weather-icon { font-size: 34px; vertical-align: middle; }
+    .footer-weather-temp { font-size: 28px; font-weight: bold; vertical-align: middle; margin-left: 5px; }
+    .footer-weather-city { display: block; color: #94a3b8; font-size: 10px; margin-top: 2px; text-align: center; }
+    .footer-weather-days { display: inline-block; width: 52%; margin-left: 4%; vertical-align: middle; border-left: 1px solid rgba(255,255,255,.12); padding-left: 4%; white-space: nowrap; }
+    .footer-weather-day { display: inline-block; width: 32%; text-align: center; color: #cbd5e1; font-size: 10px; }
+    .footer-weather-day span { display: block; font-size: 16px; line-height: 1.1; }
+    .footer-news-source { color: #22a7ff; font-size: 12px; font-weight: bold; }
+    .footer-news-category, .footer-news-date { color: #94a3b8; font-size: 10px; }
+    .footer-news-title { font-size: 22px; font-weight: bold; line-height: 1.16; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .footer-news-summary { color: #cbd5e1; font-size: 13px; line-height: 1.25; margin-top: 3px; max-height: 2.5em; overflow: hidden; }
+    .footer-widget.layout-news { position: relative; }
+    .footer-widget.layout-news > div { height: 100%; overflow: hidden; }
+    .footer-news-image { float: left; display: block; width: 16%; max-width: 112px; height: 72px; max-height: 100%; margin-right: 12px; border-radius: 4px; object-fit: cover; }
+    .message { height: 100%; display: table; width: 100%; text-align: center; }
+    .message > div { display: table-cell; vertical-align: middle; padding: 30px; }
+    .message h1 { font-size: 28px; margin: 0 0 16px; }
+    .message p { color: #cbd5e1; font-size: 18px; line-height: 1.5; margin: 0; }
+    .identity { position: absolute; right: 12px; bottom: 10px; padding: 5px 8px; background: rgba(0,0,0,.55); color: #cbd5e1; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div id="screen"><div class="message"><div><h1>Corporate Screen</h1><p>Conectando esta TV...</p></div></div></div>
+  <noscript><div style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:100;background:#000;color:#fff;padding:40px;font:24px Arial">Não é possível transmitir: JavaScript está desativado ou não é compatível com este navegador.</div></noscript>
+  <script src="/player-diagnostics.js?v=2026-09-04.3"></script>
+  <script>
+  (function () {
+    'use strict';
+    var screen = document.getElementById('screen');
+    if (!window.CorporateScreenDiagnostics) { screen.innerHTML = '<div class="message"><div><h1>Falha ao iniciar o player</h1><p>Não foi possível carregar os arquivos do sistema. Verifique a conexão e reabra a página.</p></div></div>'; return; }
+    var diagnostics = window.CorporateScreenDiagnostics.create();
+    var stopWatching = null;
+    var contentLoading = false;
+    window.addEventListener('error', function () { diagnostics.fail('PLAYER_RUNTIME'); }, false);
+    var tvId = read('corporate-screen.legacy.tvId');
+    var token = read('corporate-screen.legacy.playerToken');
+    var deviceId = read('corporate-screen.legacy.deviceId');
+    var items = [];
+    var currentIndex = 0;
+    var currentTimer = null;
+    var lastSignature = '';
+    var currentLayout = null;
+    var currentTV = null;
+    var layoutTimers = [];
+    var footerTimers = [];
+    var standardFooter = null;
+    var footerSignature = '';
+    var newsItemsCache = [];
+    var syncActive = false;
+    var syncCycleStartedAt = '';
+    var serverOffsetMs = 0;
+
+    function read(key) {
+      try { var localValue = window.localStorage.getItem(key); if (localValue) return localValue; } catch (e) {}
+      var encodedName = encodeURIComponent(key) + '=';
+      var cookies = String(document.cookie || '').split(';');
+      for (var index = 0; index < cookies.length; index += 1) {
+        var part = cookies[index].replace(/^\s+/, '');
+        if (part.indexOf(encodedName) === 0) {
+          try { return decodeURIComponent(part.slice(encodedName.length)); } catch (e) { return null; }
+        }
+      }
+      return null;
+    }
+    function write(key, value) {
+      try { window.localStorage.setItem(key, value); return; } catch (e) {}
+      try { document.cookie = encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; Path=/; Max-Age=315360000; SameSite=Lax; Secure'; } catch (e) {}
+    }
+    function createDeviceId() {
+      // Compatível com navegadores antigos de TV, que não têm crypto.randomUUID.
+      var value = 'legacy-' + new Date().getTime().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+      write('corporate-screen.legacy.deviceId', value);
+      return value;
+    }
+    if (!deviceId) deviceId = createDeviceId();
+    function showMessage(title, text) {
+      if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(false);
+      lastSignature = '';
+      if (stopWatching) { stopWatching(); stopWatching = null; }
+      clearTimer();
+      clearLayoutTimers();
+      clearFooterTimers();
+      standardFooter = null;
+      footerSignature = '';
+      screen.innerHTML = '<div class="message"><div><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(text) + '</p></div></div>';
+    }
+    function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function clearTimer() { if (currentTimer) { window.clearTimeout(currentTimer); currentTimer = null; } }
+    function clearLayoutTimers() {
+      while (layoutTimers.length) window.clearInterval(layoutTimers.pop());
+    }
+    function clearFooterTimers() {
+      while (footerTimers.length) window.clearInterval(footerTimers.pop());
+    }
+    function requestFullscreen() {
+      if (window.CorporateScreenPower) window.CorporateScreenPower.request();
+      // TVs Samsung mais antigas usam o prefixo webkit. A chamada automática
+      // funciona nos aparelhos que permitem fullscreen pelo player; nos demais
+      // a mesma função será disparada no primeiro Enter, clique ou toque.
+      var root = document.documentElement;
+      var request = root.requestFullscreen || root.webkitRequestFullscreen || root.mozRequestFullScreen || root.msRequestFullscreen;
+      if (!request) return;
+      try {
+        var result = request.call(root);
+        if (result && result.catch) result.catch(function () {});
+      } catch (e) {}
+    }
+    function createXHR() {
+      if (window.XMLHttpRequest) return new window.XMLHttpRequest();
+      try { return new window.ActiveXObject('Microsoft.XMLHTTP'); } catch (e) { return null; }
+    }
+    function request(method, url, body, headers, done) {
+      var xhr = createXHR();
+      if (!xhr || !window.JSON) { done(0, {}); return; }
+      var finished = false;
+      var timeout = window.setTimeout(function () { finish(0, {}); try { xhr.abort(); } catch (e) {} }, 12000);
+      function finish(status, data) { if (finished) return; finished = true; window.clearTimeout(timeout); done(status, data); }
+      xhr.open(method, url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      if (headers) { for (var name in headers) { if (headers.hasOwnProperty(name)) xhr.setRequestHeader(name, headers[name]); } }
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        var data = null;
+        try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch (e) { data = {}; }
+        finish(xhr.status, data);
+      };
+      xhr.onerror = function () { finish(0, {}); };
+      try { xhr.send(body ? JSON.stringify(body) : null); } catch (e) { finish(0, {}); }
+    }
+    function register() {
+      if (!window.JSON || !createXHR()) { showMessage('Navegador incompatível', 'Não é possível transmitir: faltam os recursos JSON ou de comunicação HTTP. Use outro navegador ou um dispositivo externo.'); return; }
+      if (!token && window.crypto && window.crypto.getRandomValues) {
+        var tokenBytes = new Uint8Array(32); window.crypto.getRandomValues(tokenBytes);
+        token = ''; for (var tokenIndex = 0; tokenIndex < tokenBytes.length; tokenIndex += 1) token += ('0' + tokenBytes[tokenIndex].toString(16)).slice(-2);
+        write('corporate-screen.legacy.playerToken', token);
+      }
+      request('POST', '/api/player/register', { tvId: tvId, playerToken: token, deviceId: deviceId }, null, function (status, data) {
+        if (status < 200 || status >= 300 || !data.id || !data.playerToken) {
+          showMessage('Não foi possível conectar', 'Verifique se o servidor está ligado e recarregue esta página.');
+          window.setTimeout(register, 15000);
+          return;
+        }
+        tvId = data.id;
+        token = data.playerToken;
+        write('corporate-screen.legacy.tvId', tvId);
+        write('corporate-screen.legacy.playerToken', token);
+        request('POST', '/api/player/' + encodeURIComponent(tvId) + '/compatibility', {
+          compatible: Boolean(window.JSON && createXHR()), browser: String(navigator.userAgent || 'Player legado').slice(0, 120), reason: 'Este navegador não possui os recursos básicos de comunicação do player.'
+        }, { 'X-Player-Token': token }, function () {});
+        loadContent();
+      });
+    }
+    function loadContent() {
+      if (contentLoading || !tvId || !token) return;
+      contentLoading = true;
+      var requestStarted = new Date().getTime();
+      request('POST', '/api/player/' + encodeURIComponent(tvId) + '/content', { playback: diagnostics.snapshot() }, { 'X-Player-Token': token }, function (status, data) {
+        contentLoading = false;
+        diagnostics.requestSample(new Date().getTime() - requestStarted, status);
+        if (status === 401) { diagnostics.fail('PLAYER_UNAUTHORIZED'); showMessage('Dispositivo não autorizado', 'O token desta TV foi recusado. Não aprove outro cadastro sem verificar o aparelho. Consulte o administrador.'); return; }
+        if (status === 404) { tvId = null; token = null; register(); return; }
+        if (status < 200 || status >= 300) { diagnostics.network(); showMessage('Sem conexão', 'Não foi possível consultar a programação. Tentaremos novamente em 15 segundos.'); return; }
+        diagnostics.content(data, false, false);
+        if (data.pendenteAprovacao) { showMessage('Aguardando aprovação', 'Esta TV foi cadastrada. Aprove o dispositivo no painel administrativo.'); return; }
+        if (data.dentroHorarioOperacional === false) { showMessage('Em espera', data.standbyReason || 'Fora do horário de exibição.'); return; }
+        var playlist = data.playlist;
+        currentTV = data.tv || null;
+        currentLayout = data.layout || null;
+        if (!playlist || !playlist.itens || !playlist.itens.length) {
+          if (currentLayout && currentLayout.componentes && currentLayout.componentes.length) {
+            showLayoutOnly();
+          } else {
+            showMessage('Sem conteúdo', 'Associe uma playlist ou um layout a esta TV no painel administrativo.');
+          }
+          return;
+        }
+        // A consulta acontece a cada 15 segundos. A assinatura inclui o modo
+        // de sincronização, mas não deve recriar a mídia quando nada mudou:
+        // em TVs Samsung antigas isso pausava/recarregava o vídeo periodicamente.
+        var signature = playlist.id + ':' + JSON.stringify(playlist.itens) + ':' + JSON.stringify(currentLayout || {}) + ':' + (data.atualizacaoPlayersEm || '') + ':' + (data.cicloSincronizadoEm || '') + ':' + (data.sincronizacaoImagensAtiva === true ? 'sync' : 'normal');
+        var contentChanged = signature !== lastSignature;
+        diagnostics.content(data, contentChanged, false);
+        if (contentChanged) { lastSignature = signature; items = playlist.itens.slice(0).sort(function (a, b) { return a.ordem - b.ordem; }); currentIndex = 0; }
+        syncActive = data.sincronizacaoImagensAtiva === true && items.length > 0;
+        for (var syncIndex = 0; syncIndex < items.length; syncIndex += 1) {
+          if (items[syncIndex].tipo !== 'imagem' && items[syncIndex].tipo !== 'video') syncActive = false;
+        }
+        syncCycleStartedAt = data.cicloSincronizadoEm || '';
+        serverOffsetMs = data.horarioServidor ? new Date(data.horarioServidor).getTime() - new Date().getTime() : 0;
+        if (contentChanged) {
+          if (syncActive) { playSynchronized(); } else { playCurrent(); }
+        } else if (getFooterSignature(currentTV) !== footerSignature) {
+          renderStandardFooter(currentTV);
+        }
+      });
+    }
+    function playSynchronized() {
+      clearTimer();
+      var cycleStartMs = new Date(syncCycleStartedAt).getTime();
+      var durations = [];
+      var totalDurationMs = 0;
+      for (var durationIndex = 0; durationIndex < items.length; durationIndex += 1) {
+        var duration = Math.max(3, Number(items[durationIndex].tempoExibicao) || 20) * 1000;
+        durations.push(duration);
+        totalDurationMs += duration;
+      }
+      if (!cycleStartMs || !totalDurationMs) { playCurrent(); return; }
+      var elapsedMs = (((new Date().getTime() + serverOffsetMs - cycleStartMs) % totalDurationMs) + totalDurationMs) % totalDurationMs;
+      var accumulatedMs = 0;
+      var remainingMs = durations[0];
+      var videoOffsetSeconds = 0;
+      currentIndex = 0;
+      for (var index = 0; index < durations.length; index += 1) {
+        if (elapsedMs < accumulatedMs + durations[index]) { currentIndex = index; remainingMs = accumulatedMs + durations[index] - elapsedMs; videoOffsetSeconds = (elapsedMs - accumulatedMs) / 1000; break; }
+        accumulatedMs += durations[index];
+      }
+      playCurrent(true, videoOffsetSeconds);
+      currentTimer = window.setTimeout(playSynchronized, Math.max(100, remainingMs + 50));
+    }
+    function playCurrent(synchronized, videoOffsetSeconds) {
+      if (stopWatching) { stopWatching(); stopWatching = null; }
+      clearTimer();
+      clearLayoutTimers();
+      if (!items.length) { if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(false); return; }
+      if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(true);
+      var item = items[currentIndex];
+      var media;
+      var savedFooter = standardFooter;
+      if (savedFooter && savedFooter.parentNode === screen) screen.removeChild(savedFooter);
+      screen.innerHTML = '';
+      if (item.tipo === 'video') {
+        media = document.createElement('video');
+        media.autoplay = true; media.muted = true; media.setAttribute('muted', ''); media.setAttribute('playsinline', '');
+        media.src = item.arquivo;
+        if (typeof media.play !== 'function') {
+          diagnostics.fail('VIDEO_UNSUPPORTED');
+          media = document.createElement('div');
+          media.className = 'message';
+          media.innerHTML = '<div><h1>Vídeo não suportado</h1><p>Este navegador pode exibir imagens, mas não oferece vídeo HTML5.</p></div>';
+          if (!synchronized) currentTimer = window.setTimeout(next, Math.max(3, Number(item.tempoExibicao) || 20) * 1000);
+        }
+        if (synchronized) {
+          media.loop = true;
+          media.onloadedmetadata = function () { if (media.duration) media.currentTime = videoOffsetSeconds % media.duration; };
+        } else {
+          media.onended = next;
+        }
+        media.onerror = retryAfterError;
+      } else if (item.tipo === 'link') {
+        media = document.createElement('iframe');
+        media.setAttribute('sandbox', 'allow-scripts allow-presentation');
+        media.src = item.arquivo;
+        if (!synchronized) currentTimer = window.setTimeout(next, Math.max(3, Number(item.tempoExibicao) || 20) * 1000);
+      } else {
+        media = document.createElement('img');
+        media.src = item.arquivo;
+        media.onerror = retryAfterError;
+        if (!synchronized) currentTimer = window.setTimeout(next, Math.max(3, Number(item.tempoExibicao) || 20) * 1000);
+      }
+      screen.appendChild(media);
+      if (media.addEventListener && media.tagName !== 'DIV') stopWatching = diagnostics.watch(media, item);
+      renderLayout(currentLayout);
+      if (savedFooter) screen.appendChild(savedFooter); else renderStandardFooter(currentTV);
+      var identity = document.createElement('div'); identity.className = 'identity'; identity.innerHTML = escapeHtml(tvId || 'TV'); screen.appendChild(identity);
+      requestFullscreen();
+    }
+    function showLayoutOnly() {
+      if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(true);
+      if (stopWatching) { stopWatching(); stopWatching = null; }
+      clearTimer();
+      clearLayoutTimers();
+      var savedFooter = standardFooter;
+      if (savedFooter && savedFooter.parentNode === screen) screen.removeChild(savedFooter);
+      screen.innerHTML = '';
+      renderLayout(currentLayout);
+      if (savedFooter) screen.appendChild(savedFooter); else renderStandardFooter(currentTV);
+      var identity = document.createElement('div'); identity.className = 'identity'; identity.innerHTML = escapeHtml(tvId || 'TV'); screen.appendChild(identity);
+      requestFullscreen();
+    }
+    function retryAfterError() {
+      // Evita uma sequência sem pausa de downloads de um arquivo quebrado.
+      clearTimer();
+      currentTimer = window.setTimeout(function () { if (syncActive) playSynchronized(); else next(); }, 3000);
+    }
+    function renderLayout(layout) {
+      if (!layout || !layout.componentes) return;
+      for (var index = 0; index < layout.componentes.length; index += 1) {
+        var component = layout.componentes[index];
+        if (!component || component.visivel === false || component.tipo === 'relogio' || component.tipo === 'clima' || component.tipo === 'noticias') continue;
+        var node = document.createElement('div');
+        node.className = 'layout-item';
+        node.style.left = ((Number(component.x) || 0) / 1920 * 100) + '%';
+        node.style.top = ((Number(component.y) || 0) / 1080 * 100) + '%';
+        node.style.width = ((Number(component.largura) || 300) / 1920 * 100) + '%';
+        node.style.height = ((Number(component.altura) || 160) / 1080 * 100) + '%';
+        appendLayoutContent(node, component);
+        screen.appendChild(node);
+      }
+    }
+    function renderStandardFooter(tv) {
+      tv = tv || {};
+      var signature = getFooterSignature(tv);
+      if (standardFooter && footerSignature === signature) {
+        if (standardFooter.parentNode !== screen) screen.appendChild(standardFooter);
+        return;
+      }
+      clearFooterTimers();
+      if (standardFooter && standardFooter.parentNode === screen) screen.removeChild(standardFooter);
+      var blocks = [];
+      if (tv.exibirRelogio !== false) blocks.push({ type: 'clock', weight: 10 });
+      if (tv.exibirNoticias !== false) blocks.push({ type: 'news', weight: 70 });
+      if (tv.exibirClima !== false) blocks.push({ type: 'weather', weight: 20 });
+      if (!blocks.length) { standardFooter = null; footerSignature = signature; return; }
+      var footer = document.createElement('div'); footer.className = 'standard-footer';
+      var totalWeight = 0;
+      for (var weightIndex = 0; weightIndex < blocks.length; weightIndex += 1) totalWeight += blocks[weightIndex].weight;
+      for (var index = 0; index < blocks.length; index += 1) {
+        var block = blocks[index];
+        var cell = document.createElement('div'); cell.className = 'standard-footer-cell'; cell.style.width = (block.weight / totalWeight * 100) + '%';
+        if (block.type === 'clock') appendClock(cell, footerTimers);
+        if (block.type === 'news') appendNews(cell, footerTimers, footer);
+        if (block.type === 'weather') appendWeather(cell, tv.cepClima || '');
+        footer.appendChild(cell);
+      }
+      standardFooter = footer;
+      footerSignature = signature;
+      screen.appendChild(footer);
+    }
+    function getFooterSignature(tv) {
+      tv = tv || {};
+      return [tv.exibirRelogio !== false ? '1' : '0', tv.exibirNoticias !== false ? '1' : '0', tv.exibirClima !== false ? '1' : '0', String(tv.cepClima || '')].join(':');
+    }
+    function appendLayoutContent(node, component) {
+      var type = component.tipo || 'texto';
+      var content = component.conteudo || '';
+      if (type === 'imagem' || type === 'logo') {
+        var image = document.createElement('img'); image.src = content; node.appendChild(image); return;
+      }
+      if (type === 'video') {
+        var video = document.createElement('video'); video.src = content; video.autoplay = true; video.muted = true; video.loop = true; video.setAttribute('muted', ''); video.setAttribute('playsinline', ''); node.appendChild(video); return;
+      }
+      if (type === 'dashboard' || type === 'pagina-web') {
+        var frame = document.createElement('iframe'); frame.setAttribute('sandbox', 'allow-scripts allow-presentation'); frame.src = content; node.appendChild(frame); return;
+      }
+      if (type === 'relogio') { appendClock(node); return; }
+      if (type === 'clima') { appendWeather(node, content); return; }
+      if (type === 'noticias') { appendNews(node); return; }
+      node.innerHTML = '<div class="layout-text"><div>' + escapeHtml(content) + '</div></div>';
+    }
+    function appendClock(node, timers) {
+      node.innerHTML = '<div class="footer-widget footer-clock"><span class="footer-clock-content"><span class="footer-clock-time"></span><span class="footer-clock-date"></span></span></div>';
+      var output = node.getElementsByTagName('span');
+      function update() { var now = new Date(); output[1].innerHTML = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2); output[2].innerHTML = shortDay(now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2)) + ' • ' + ('0' + now.getDate()).slice(-2) + '/' + ('0' + (now.getMonth() + 1)).slice(-2); }
+      update(); (timers || layoutTimers).push(window.setInterval(update, 1000));
+    }
+    function appendWeather(node, place) {
+      node.innerHTML = '<div class="footer-widget"><div>Carregando clima...</div></div>';
+      var output = node.getElementsByTagName('div')[1];
+      var digits = String(place || '').replace(/\D/g, '');
+      if (digits.length !== 8 && !String(place || '').replace(/^\s+|\s+$/g, '')) { output.innerHTML = 'Configure o CEP desta TV'; return; }
+      var url = '/api/widgets/weather?' + (digits.length === 8 ? 'cep=' + encodeURIComponent(digits) : 'cidade=' + encodeURIComponent(place || ''));
+      request('GET', url, null, null, function (status, data) {
+        if (status >= 200 && status < 300) {
+          var days = data.previsaoSemanal || [];
+          var forecast = '';
+          for (var i = 1; i < days.length && i < 4; i += 1) forecast += '<span class="footer-weather-day">' + escapeHtml(shortDay(days[i].data)) + '<span>' + weatherEmoji(days[i].codigo) + '</span>' + escapeHtml(Math.round(days[i].temperaturaMaxima)) + '°</span>';
+          output.innerHTML = '<span class="footer-weather-current"><span class="footer-weather-icon">' + weatherEmoji(data.codigo) + '</span><span class="footer-weather-temp">' + escapeHtml(Math.round(data.temperatura)) + '°</span><span class="footer-weather-city">' + escapeHtml(data.cidade) + '</span></span><span class="footer-weather-days">' + forecast + '</span>';
+        }
+        else output.innerHTML = 'Clima indisponível';
+      });
+    }
+    function appendNews(node, timers, ownerFooter) {
+      node.innerHTML = '<div class="footer-widget layout-news"><div></div></div>';
+      var output = node.getElementsByTagName('div')[1];
+      var started = false;
+      function start(items) {
+        if (started || !items.length) return;
+        started = true;
+        var itemIndex = 0;
+        function show() { var item = items[itemIndex % items.length]; output.innerHTML = (item.imagem ? '<img class="footer-news-image" src="' + escapeHtml(item.imagem) + '" alt="">' : '') + '<div class="footer-news-source">▣ ' + escapeHtml(item.fonte || 'NOTÍCIAS') + ' <span class="footer-news-category">• ' + escapeHtml(item.fonteCategoria || 'Notícias') + '</span></div><div class="footer-news-title">' + escapeHtml(item.titulo) + '</div>' + (item.resumo ? '<div class="footer-news-summary">' + escapeHtml(stripTags(item.resumo)) + '</div>' : '') + '<div class="footer-news-date">' + escapeHtml(formatNewsDate(item.publicadoEm)) + '</div>'; itemIndex += 1; output.style.opacity = '1'; }
+        function advance() { output.style.opacity = '0'; (timers || layoutTimers).push(window.setTimeout(function () { show(); }, 400)); }
+        show(); if (items.length > 1) (timers || layoutTimers).push(window.setInterval(advance, 15000));
+      }
+      if (newsItemsCache.length) start(newsItemsCache);
+      request('GET', '/api/widgets/news', null, null, function (status, data) {
+        var items = status >= 200 && status < 300 && data && data.length ? data : [];
+        if (!items.length) { if (!started) output.innerHTML = 'Notícias indisponíveis'; return; }
+        newsItemsCache = items;
+        if (ownerFooter && standardFooter !== ownerFooter) return;
+        start(items);
+      });
+    }
+    function weatherEmoji(code) { code = Number(code); if (code === 0 || code === 1) return '☀️'; if (code === 2 || code === 3) return '⛅'; if (code === 45 || code === 48) return '🌫️'; if (code >= 51 && code <= 67) return '🌧️'; if (code >= 71 && code <= 77) return '❄️'; if (code >= 80 && code <= 82) return '🌦️'; if (code >= 95) return '⛈️'; return '🌤️'; }
+    function shortDay(value) { var date = new Date(String(value) + 'T12:00:00'); var labels = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB']; return isNaN(date.getTime()) ? '' : labels[date.getDay()]; }
+    function stripTags(value) { return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); }
+    function formatNewsDate(value) { var date = new Date(value); if (isNaN(date.getTime())) return 'Atualização automática'; return ('0' + date.getDate()).slice(-2) + '/' + ('0' + (date.getMonth() + 1)).slice(-2) + ' ' + ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2); }
+    function next() { currentIndex = (currentIndex + 1) % items.length; playCurrent(); }
+    function onEvent(target, name, handler) {
+      if (target.addEventListener) target.addEventListener(name, handler, false);
+      else if (target.attachEvent) target.attachEvent('on' + name, handler);
+    }
+    onEvent(document, 'click', requestFullscreen);
+    onEvent(document, 'touchend', requestFullscreen);
+    onEvent(document, 'keydown', function (event) {
+      var key = event && (event.keyCode || event.which);
+      if (key === 13 || key === 32) requestFullscreen();
+    });
+    window.setInterval(loadContent, 15000);
+    register();
+  }());
+  </script>
+</body>
+</html>

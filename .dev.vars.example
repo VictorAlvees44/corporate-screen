@@ -1,0 +1,6 @@
+# Copie para .dev.vars ao testar o Worker localmente.
+# Nunca versione .dev.vars nem credenciais reais.
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8787/api/auth/google/callback
+GOOGLE_WORKSPACE_DOMAIN=
