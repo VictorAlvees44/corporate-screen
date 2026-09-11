@@ -7,7 +7,7 @@ import { getSettings } from '../data/settingsRepository'
 import { findActiveScheduleForTV } from '../data/scheduleRepository'
 import { findOrCreatePlayerTV, findTVById, patchTV } from '../data/tvRepository'
 import { normalizePlaybackReport, shouldPersistPlayback } from '../utils/playerTelemetry'
-import { latestPlayerRefresh } from '../utils/playerCommands'
+import { latestPlayerRefresh, synchronizationForPlayer } from '../utils/playerCommands'
 import { getFixedOperationalWindowState } from '../utils/operationalSchedule'
 import type { TV } from '../types'
 
@@ -137,6 +137,12 @@ export async function getPlayerContent(req: Request, res: Response) {
   const playlistId = schedule?.playlistId ?? tv.playlistAtual
   const playlist = playlistId ? await findPlaylistById(playlistId) : null
   const layout = tv.layoutAtual ? await findLayoutById(tv.layoutAtual) : null
+  const userAgent = typeof req.get === 'function' ? req.get('user-agent') ?? '' : ''
+  const synchronizedPlayback = synchronizationForPlayer(
+    settings.sincronizacaoImagensAtiva,
+    userAgent,
+    Boolean(playlist?.itens.some((item) => item.tipo === 'video')),
+  )
 
   res.json({
     tv: safeTV,
@@ -148,7 +154,7 @@ export async function getPlayerContent(req: Request, res: Response) {
     standbyReason: null,
     pendenteAprovacao: false,
     atualizacaoPlayersEm: requestedRefresh,
-    sincronizacaoImagensAtiva: settings.sincronizacaoImagensAtiva,
+    sincronizacaoImagensAtiva: synchronizedPlayback,
     cicloSincronizadoEm: settings.cicloSincronizadoEm,
     horarioServidor: new Date().toISOString(),
   })

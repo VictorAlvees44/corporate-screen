@@ -1,10 +1,10 @@
-const STATIC_CACHE = 'corporate-screen-static-v7'
+const STATIC_CACHE = 'corporate-screen-static-v8'
 // Descarta respostas antigas que podiam conter MIME não normalizado.
 const MEDIA_CACHE = 'corporate-screen-media-v5'
 const WIDGET_CACHE = 'corporate-screen-widgets-v2'
 // A raiz é o único endereço que uma TV precisa guardar. Rotas administrativas
 // não entram no pré-cache para não manter uma cópia desnecessária do painel.
-const STATIC_ASSETS = ['/', '/favicon.svg', '/icons.svg', '/player-diagnostics.js?v=2026-09-04.3']
+const STATIC_ASSETS = ['/', '/favicon.svg', '/icons.svg', '/player-diagnostics.js?v=2026-09-11.1']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

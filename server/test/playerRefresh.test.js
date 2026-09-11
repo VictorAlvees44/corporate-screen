@@ -4,7 +4,7 @@ import { refreshTVHandler } from '../dist/controllers/tvController.js'
 import { getPlayerContent } from '../dist/controllers/playerController.js'
 import { getSettings } from '../dist/data/settingsRepository.js'
 import { findTVById } from '../dist/data/tvRepository.js'
-import { latestPlayerRefresh } from '../dist/utils/playerCommands.js'
+import { latestPlayerRefresh, synchronizationForPlayer } from '../dist/utils/playerCommands.js'
 import { useMemoryJsonStore } from './helpers/memoryJsonStore.js'
 
 const global = '2026-01-01T10:00:00.000Z'
@@ -50,4 +50,12 @@ test('a atualização mais nova prevalece, inclusive um comando global posterior
   assert.equal(latestPlayerRefresh(nextGlobal, individual), nextGlobal)
   assert.equal(latestPlayerRefresh('', individual), individual)
   assert.equal(latestPlayerRefresh(global, 'invalid'), global)
+})
+
+test('Samsung Chromium 25 reproduz vídeo sem busca sincronizada que trava a tela', () => {
+  const oldSamsung = 'Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.42 Chromium/25.0.1349.2 Chrome/25.0.1349.2'
+  assert.equal(synchronizationForPlayer(true, oldSamsung, true), false)
+  assert.equal(synchronizationForPlayer(true, oldSamsung, false), true)
+  assert.equal(synchronizationForPlayer(true, 'Mozilla/5.0 (SMART-TV) Chrome/63.0.0.0', true), true)
+  assert.equal(synchronizationForPlayer(false, oldSamsung, true), false)
 })
