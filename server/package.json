@@ -13,7 +13,7 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jose": "^6.2.10",
-    "multer": "^2.2.0",
+    "multer": "^2.3.0",
     "systeminformation": "^5.33.1"
   },
   "devDependencies": {
