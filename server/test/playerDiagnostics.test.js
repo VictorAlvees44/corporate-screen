@@ -12,6 +12,15 @@ test('diagnóstico e player legado continuam compilando para ES5', () => {
   assert.doesNotThrow(() => transformSync(legacy, { target: 'es5' }))
 })
 
+test('player legado força carregamento, URL absoluta e retomada por controle remoto', () => {
+  assert.match(legacy, /setAttribute\('preload', 'auto'\)/)
+  assert.match(legacy, /media\.src = absoluteMediaUrl\(item\.arquivo\)/)
+  assert.match(legacy, /media\.load\(\)/)
+  assert.match(legacy, /onEvent\(media, 'canplay'/)
+  assert.match(legacy, /function activatePlayer\(\)/)
+  assert.match(legacy, /Pressione OK ou Enter uma vez/)
+})
+
 test('player mantém a tela acordada somente durante a exibição e readquire ao voltar', async () => {
   const documentListeners = new Map()
   let requests = 0

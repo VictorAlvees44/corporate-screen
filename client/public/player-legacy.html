@@ -42,6 +42,8 @@
     .message h1 { font-size: 28px; margin: 0 0 16px; }
     .message p { color: #cbd5e1; font-size: 18px; line-height: 1.5; margin: 0; }
     .identity { position: absolute; right: 12px; bottom: 10px; padding: 5px 8px; background: rgba(0,0,0,.55); color: #cbd5e1; font-size: 11px; }
+    .video-start-prompt { position: absolute; z-index: 40; left: 10%; right: 10%; top: 36%; padding: 24px; border: 2px solid #22d3ee; border-radius: 8px; background: rgba(2,6,23,.96); color: #fff; text-align: center; font-size: 22px; line-height: 1.4; }
+    .video-start-prompt strong { display: block; margin-bottom: 8px; color: #67e8f9; font-size: 26px; }
   </style>
 </head>
 <body>
@@ -63,6 +65,10 @@
     var items = [];
     var currentIndex = 0;
     var currentTimer = null;
+    var currentVideo = null;
+    var videoStartTimer = null;
+    var videoStartAttempts = 0;
+    var videoPrompt = null;
     var lastSignature = '';
     var currentLayout = null;
     var currentTV = null;
@@ -111,6 +117,55 @@
     }
     function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function clearTimer() { if (currentTimer) { window.clearTimeout(currentTimer); currentTimer = null; } }
+    function clearVideoStartTimer() { if (videoStartTimer) { window.clearTimeout(videoStartTimer); videoStartTimer = null; } }
+    function removeVideoPrompt() {
+      if (videoPrompt && videoPrompt.parentNode) videoPrompt.parentNode.removeChild(videoPrompt);
+      videoPrompt = null;
+    }
+    function absoluteMediaUrl(value) {
+      value = String(value || '');
+      if (/^https?:\/\//i.test(value)) return value;
+      if (value.charAt(0) !== '/') value = '/' + value;
+      return window.location.protocol + '//' + window.location.host + value;
+    }
+    function markVideoStarted(video) {
+      if (currentVideo !== video) return;
+      if ((Number(video.currentTime) || 0) <= 0 && video.paused !== false) return;
+      clearVideoStartTimer();
+      removeVideoPrompt();
+    }
+    function showVideoStartPrompt() {
+      if (videoPrompt || !currentVideo) return;
+      videoPrompt = document.createElement('div');
+      videoPrompt.className = 'video-start-prompt';
+      videoPrompt.innerHTML = '<strong>O vídeo precisa ser iniciado</strong>Pressione OK ou Enter uma vez no controle remoto. O player continuará tentando automaticamente.';
+      screen.appendChild(videoPrompt);
+    }
+    function attemptVideoStart(video, reload) {
+      if (!video || currentVideo !== video) return;
+      clearVideoStartTimer();
+      if (reload && typeof video.load === 'function') { try { video.load(); } catch (e) {} }
+      try {
+        var result = video.play();
+        if (result && result.catch) result.catch(function (error) {
+          if (currentVideo !== video || !error || error.name === 'AbortError') return;
+          diagnostics.fail(error.name === 'NotAllowedError' ? 'AUTOPLAY_BLOCKED' : 'VIDEO_FORMAT');
+          showVideoStartPrompt();
+        });
+      } catch (e) { diagnostics.fail('VIDEO_FORMAT'); }
+      videoStartTimer = window.setTimeout(function () {
+        if (currentVideo !== video || (Number(video.currentTime) || 0) > 0 || video.paused === false) { markVideoStarted(video); return; }
+        videoStartAttempts += 1;
+        if (videoStartAttempts <= 2) { attemptVideoStart(video, true); return; }
+        diagnostics.fail('AUTOPLAY_BLOCKED');
+        showVideoStartPrompt();
+        videoStartTimer = window.setTimeout(function () { attemptVideoStart(video, true); }, 30000);
+      }, 10000);
+    }
+    function activatePlayer() {
+      requestFullscreen();
+      if (currentVideo) { videoStartAttempts = 0; attemptVideoStart(currentVideo, false); }
+    }
     function clearLayoutTimers() {
       while (layoutTimers.length) window.clearInterval(layoutTimers.pop());
     }
@@ -245,6 +300,10 @@
     function playCurrent(synchronized, videoOffsetSeconds) {
       if (stopWatching) { stopWatching(); stopWatching = null; }
       clearTimer();
+      clearVideoStartTimer();
+      removeVideoPrompt();
+      currentVideo = null;
+      videoStartAttempts = 0;
       clearLayoutTimers();
       if (!items.length) { if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(false); return; }
       if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(true);
@@ -255,8 +314,8 @@
       screen.innerHTML = '';
       if (item.tipo === 'video') {
         media = document.createElement('video');
-        media.autoplay = true; media.muted = true; media.setAttribute('muted', ''); media.setAttribute('playsinline', '');
-        media.src = item.arquivo;
+        media.autoplay = true; media.muted = true; media.defaultMuted = true; media.volume = 0; media.preload = 'auto';
+        media.setAttribute('autoplay', 'autoplay'); media.setAttribute('muted', 'muted'); media.setAttribute('preload', 'auto'); media.setAttribute('playsinline', ''); media.setAttribute('webkit-playsinline', '');
         if (typeof media.play !== 'function') {
           diagnostics.fail('VIDEO_UNSUPPORTED');
           media = document.createElement('div');
@@ -270,7 +329,7 @@
         } else {
           media.onended = next;
         }
-        media.onerror = retryAfterError;
+        if (media.tagName !== 'DIV') { currentVideo = media; media.onerror = retryAfterError; }
       } else if (item.tipo === 'link') {
         media = document.createElement('iframe');
         media.setAttribute('sandbox', 'allow-scripts allow-presentation');
@@ -283,7 +342,18 @@
         if (!synchronized) currentTimer = window.setTimeout(next, Math.max(3, Number(item.tempoExibicao) || 20) * 1000);
       }
       screen.appendChild(media);
-      if (media.addEventListener && media.tagName !== 'DIV') stopWatching = diagnostics.watch(media, item);
+      if (media.addEventListener && media.tagName !== 'DIV') {
+        if (item.tipo === 'video') media.src = absoluteMediaUrl(item.arquivo);
+        stopWatching = diagnostics.watch(media, item);
+        if (item.tipo === 'video') {
+          onEvent(media, 'playing', function () { markVideoStarted(media); });
+          onEvent(media, 'timeupdate', function () { markVideoStarted(media); });
+          onEvent(media, 'loadedmetadata', function () { attemptVideoStart(media, false); });
+          onEvent(media, 'canplay', function () { attemptVideoStart(media, false); });
+          if (typeof media.load === 'function') { try { media.load(); } catch (e) {} }
+          attemptVideoStart(media, false);
+        }
+      }
       renderLayout(currentLayout);
       if (savedFooter) screen.appendChild(savedFooter); else renderStandardFooter(currentTV);
       var identity = document.createElement('div'); identity.className = 'identity'; identity.innerHTML = escapeHtml(tvId || 'TV'); screen.appendChild(identity);
@@ -424,11 +494,11 @@
       if (target.addEventListener) target.addEventListener(name, handler, false);
       else if (target.attachEvent) target.attachEvent('on' + name, handler);
     }
-    onEvent(document, 'click', requestFullscreen);
-    onEvent(document, 'touchend', requestFullscreen);
+    onEvent(document, 'click', activatePlayer);
+    onEvent(document, 'touchend', activatePlayer);
     onEvent(document, 'keydown', function (event) {
       var key = event && (event.keyCode || event.which);
-      if (key === 13 || key === 32) requestFullscreen();
+      if (key === 13 || key === 32) activatePlayer();
     });
     window.setInterval(loadContent, 15000);
     register();
