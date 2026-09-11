@@ -49,7 +49,7 @@
 <body>
   <div id="screen"><div class="message"><div><h1>Corporate Screen</h1><p>Conectando esta TV...</p></div></div></div>
   <noscript><div style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:100;background:#000;color:#fff;padding:40px;font:24px Arial">Não é possível transmitir: JavaScript está desativado ou não é compatível com este navegador.</div></noscript>
-  <script src="/player-diagnostics.js?v=2026-09-11.1"></script>
+  <script src="/player-diagnostics.js?v=2026-09-11.2"></script>
   <script>
   (function () {
     'use strict';
@@ -116,6 +116,7 @@
       lastSignature = '';
       if (stopWatching) { stopWatching(); stopWatching = null; }
       clearTimer();
+      releaseCurrentVideo();
       clearLayoutTimers();
       clearFooterTimers();
       standardFooter = null;
@@ -125,6 +126,15 @@
     function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function clearTimer() { if (currentTimer) { window.clearTimeout(currentTimer); currentTimer = null; } }
     function clearVideoStartTimer() { if (videoStartTimer) { window.clearTimeout(videoStartTimer); videoStartTimer = null; } }
+    function releaseCurrentVideo() {
+      clearVideoStartTimer();
+      if (!currentVideo) return;
+      var video = currentVideo;
+      currentVideo = null;
+      try { video.pause(); } catch (e) {}
+      try { video.removeAttribute('src'); } catch (e) {}
+      try { if (typeof video.load === 'function') video.load(); } catch (e) {}
+    }
     function removeVideoPrompt() {
       if (videoPrompt && videoPrompt.parentNode) videoPrompt.parentNode.removeChild(videoPrompt);
       videoPrompt = null;
@@ -311,9 +321,8 @@
     function playCurrent(synchronized, videoOffsetSeconds) {
       if (stopWatching) { stopWatching(); stopWatching = null; }
       clearTimer();
-      clearVideoStartTimer();
+      releaseCurrentVideo();
       removeVideoPrompt();
-      currentVideo = null;
       videoStartAttempts = 0;
       clearLayoutTimers();
       if (!items.length) { if (window.CorporateScreenPower) window.CorporateScreenPower.setDesired(false); return; }
@@ -334,9 +343,17 @@
           media.innerHTML = '<div><h1>Vídeo não suportado</h1><p>Este navegador pode exibir imagens, mas não oferece vídeo HTML5.</p></div>';
           if (!synchronized) currentTimer = window.setTimeout(next, Math.max(3, Number(item.tempoExibicao) || 20) * 1000);
         }
-        if (synchronized) {
+        if (synchronized || items.length === 1) {
           media.loop = true;
-          media.onloadedmetadata = function () { if (media.duration) media.currentTime = videoOffsetSeconds % media.duration; };
+          media.setAttribute('loop', 'loop');
+          if (synchronized) media.onloadedmetadata = function () { if (media.duration) media.currentTime = videoOffsetSeconds % media.duration; };
+          // Alguns Samsung antigos ignoram `loop`; reutilizar o mesmo elemento
+          // evita esgotar/travar o decodificador ao final de cada execução.
+          media.onended = function () {
+            if (currentVideo !== media) return;
+            try { media.currentTime = 0; } catch (e) {}
+            attemptVideoStart(media, false);
+          };
         } else {
           media.onended = next;
         }

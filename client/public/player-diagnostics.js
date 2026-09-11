@@ -114,7 +114,7 @@
   root.CorporateScreenDiagnostics = {
     capabilities: capabilities,
     create: function () {
-      var state = { version: '2026-09-11.1', state: 'loading', playlistId: '', itemId: '', mediaName: '', receivedSync: '', offline: false, errorCode: '', diagnostics: { checkedRequest: '', capabilities: capabilities(), network: { samples: 0, lastMs: 0, averageMs: 0, failures: 0, networkFailures: 0, consecutiveFailures: 0, lastHttpStatus: 0 }, media: { loadMs: null, stalls: 0 }, power: power() } };
+      var state = { version: '2026-09-11.2', state: 'loading', playlistId: '', itemId: '', mediaName: '', receivedSync: '', offline: false, errorCode: '', diagnostics: { checkedRequest: '', capabilities: capabilities(), network: { samples: 0, lastMs: 0, averageMs: 0, failures: 0, networkFailures: 0, consecutiveFailures: 0, lastHttpStatus: 0 }, media: { loadMs: null, stalls: 0 }, power: power() } };
       var samples = [];
       var errorSequence = 0;
       var beforeNetwork = 'loading';
