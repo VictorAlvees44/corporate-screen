@@ -19,6 +19,7 @@ test('player legado força carregamento, URL absoluta e retomada por controle re
   assert.match(legacy, /onEvent\(media, 'canplay'/)
   assert.match(legacy, /function activatePlayer\(\)/)
   assert.match(legacy, /Pressione OK ou Enter uma vez/)
+  assert.match(legacy, /conservativeSamsungVideo && items\[syncIndex\]\.tipo === 'video'/)
 })
 
 test('player mantém a tela acordada somente durante a exibição e readquire ao voltar', async () => {

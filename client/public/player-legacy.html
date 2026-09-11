@@ -80,6 +80,13 @@
     var syncActive = false;
     var syncCycleStartedAt = '';
     var serverOffsetMs = 0;
+    var conservativeSamsungVideo = needsConservativeSamsungVideo();
+
+    function needsConservativeSamsungVideo() {
+      var userAgent = String(navigator.userAgent || '');
+      var version = userAgent.match(/(?:Chromium|Chrome)\/(\d+)/i);
+      return /SMART-TV/i.test(userAgent) && Boolean(version && Number(version[1]) < 40);
+    }
 
     function read(key) {
       try { var localValue = window.localStorage.getItem(key); if (localValue) return localValue; } catch (e) {}
@@ -264,6 +271,10 @@
         syncActive = data.sincronizacaoImagensAtiva === true && items.length > 0;
         for (var syncIndex = 0; syncIndex < items.length; syncIndex += 1) {
           if (items[syncIndex].tipo !== 'imagem' && items[syncIndex].tipo !== 'video') syncActive = false;
+          // Samsung Browser/Chromium 25 pode travar em preto ao buscar um
+          // ponto avançado do MP4. Nesse aparelho, priorizamos reprodução
+          // contínua desde o início em vez do alinhamento exato de segundos.
+          if (conservativeSamsungVideo && items[syncIndex].tipo === 'video') syncActive = false;
         }
         syncCycleStartedAt = data.cicloSincronizadoEm || '';
         serverOffsetMs = data.horarioServidor ? new Date(data.horarioServidor).getTime() - new Date().getTime() : 0;
